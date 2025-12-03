@@ -1,14 +1,52 @@
 import streamlit as st
 
+
+def switch_page(page: str) -> None:
+    st.session_state.page = page
+
+
 if "page" not in st.session_state:
     st.session_state.page = "home"
 
+
+def render_home() -> None:
+    st.title("日本語クイズ")
+    st.write("直感的なボタン操作で、今日の学習をスタートしましょう。")
+
+    st.subheader("メニュー")
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button("クイズを始める", use_container_width=True):
+            switch_page("quiz")
+
+    with col2:
+        if st.button("成績を見る", use_container_width=True):
+            switch_page("result")
+
+    st.caption("気になる項目を選んで、学習を進めてください。")
+
+
+def render_quiz() -> None:
+    st.header("クイズ画面")
+    st.info("クイズ画面は現在準備中です。")
+    if st.button("ホームに戻る"):
+        switch_page("home")
+
+
+def render_result() -> None:
+    st.header("成績画面")
+    st.info("成績表示は現在準備中です。")
+    if st.button("ホームに戻る"):
+        switch_page("home")
+
+
 if st.session_state.page == "home":
-    # トップ画面を描画
+    render_home()
 elif st.session_state.page == "quiz":
-    # クイズ画面
+    render_quiz()
 elif st.session_state.page == "result":
-    # 成績画面
+    render_result()
 
 Question = {
     "id": 1,
@@ -97,4 +135,5 @@ def generate_feedback(summary):
             {"role": "user", "content": user},
         ],
     )
+
     return res.choices[0].message.content
