@@ -3,7 +3,7 @@ import streamlit as st
 
 def switch_page(page: str) -> None:
     st.session_state.page = page
-
+    st.rerun()
 
 QUESTIONS = [
     {
@@ -96,7 +96,7 @@ def render_quiz() -> None:
 
         st.session_state.last_feedback = {"is_correct": is_correct, "message": message}
         st.session_state.quiz_index += 1
-        st.experimental_rerun()
+        st.rerun()
 
     if st.button("ホームに戻る"):
         switch_page("home")
@@ -256,3 +256,4 @@ def generate_feedback(summary):
         ],
     )
     return res.choices[0].message.content
+
