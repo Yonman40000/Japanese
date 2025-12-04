@@ -5,8 +5,30 @@ def switch_page(page: str) -> None:
     st.session_state.page = page
 
 
+QUESTIONS = [
+    {
+        "id": 1,
+        "prompt": "「毎月」の読みかたは？",
+        "choices": ["せんげつ", "まいつき", "まいげつ", "らいげつ"],
+        "answer_index": 1,
+    },
+    {
+        "id": 2,
+        "prompt": "EASYの日本語は？",
+        "choices": ["やすい", "むずかしい", "かんたん", "むずい"],
+        "answer_index": 2,
+    },
+]
+
+
 if "page" not in st.session_state:
     st.session_state.page = "home"
+if "quiz_index" not in st.session_state:
+    st.session_state.quiz_index = 0
+if "quiz_answers" not in st.session_state:
+    st.session_state.quiz_answers = []
+if "last_feedback" not in st.session_state:
+    st.session_state.last_feedback = None
 
 
 def render_home() -> None:
@@ -18,6 +40,9 @@ def render_home() -> None:
 
     with col1:
         if st.button("クイズを始める", use_container_width=True):
+            st.session_state.quiz_index = 0
+            st.session_state.quiz_answers = []
+            st.session_state.last_feedback = None
             switch_page("quiz")
 
     with col2:
@@ -28,15 +53,70 @@ def render_home() -> None:
 
 
 def render_quiz() -> None:
-    st.header("クイズ画面")
-    st.info("クイズ画面は現在準備中です。")
+    st.header("クイズ")
+
+    if st.session_state.last_feedback:
+        feedback = st.session_state.last_feedback
+        if feedback["is_correct"]:
+            st.success(feedback["message"])
+        else:
+            st.error(feedback["message"])
+
+    if st.session_state.quiz_index >= len(QUESTIONS):
+        st.info("全ての問題が終了しました。お疲れさまです！")
+        if st.button("結果を見る"):
+            switch_page("result")
+        if st.button("ホームに戻る"):
+            switch_page("home")
+        return
+
+    question = QUESTIONS[st.session_state.quiz_index]
+    st.subheader(f"第{st.session_state.quiz_index + 1}問")
+    st.write(question["prompt"])
+
+    choice_labels = [f"{i + 1}. {text}" for i, text in enumerate(question["choices"])]
+    selected = st.radio(
+        "答えを選んでください",
+        options=list(range(len(choice_labels))),
+        format_func=lambda idx: choice_labels[idx],
+        key=f"choice_{st.session_state.quiz_index}",
+    )
+
+    if st.button("回答する", type="primary"):
+        is_correct = selected == question["answer_index"]
+        message = "正解です！" if is_correct else f"不正解です。正解は「{question['choices'][question['answer_index']]}」です。"
+
+        st.session_state.quiz_answers.append(
+            {
+                "question_id": question["id"],
+                "selected_index": selected,
+                "is_correct": is_correct,
+            }
+        )
+
+        st.session_state.last_feedback = {"is_correct": is_correct, "message": message}
+        st.session_state.quiz_index += 1
+        st.experimental_rerun()
+
     if st.button("ホームに戻る"):
         switch_page("home")
 
 
 def render_result() -> None:
     st.header("成績画面")
-    st.info("成績表示は現在準備中です。")
+    if not st.session_state.quiz_answers:
+        st.info("まだクイズが回答されていません。")
+    else:
+        correct = sum(ans["is_correct"] for ans in st.session_state.quiz_answers)
+        total = len(st.session_state.quiz_answers)
+        st.metric("正解数", f"{correct} / {total}")
+
+        for record in st.session_state.quiz_answers:
+            question = next(q for q in QUESTIONS if q["id"] == record["question_id"])
+            st.write(
+                f"問題: {question['prompt']} / 回答: {question['choices'][record['selected_index']]} / 正解: {question['choices'][question['answer_index']]}"
+            )
+
     if st.button("ホームに戻る"):
         switch_page("home")
 
