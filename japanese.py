@@ -5,20 +5,38 @@ def switch_page(page: str) -> None:
     st.session_state.page = page
     st.rerun()
 
-QUESTIONS = [
-    {
-        "id": 1,
-        "prompt": "「毎月」の読みかたは？",
-        "choices": ["せんげつ", "まいつき", "まいげつ", "らいげつ"],
-        "answer_index": 1,
-    },
-    {
-        "id": 2,
-        "prompt": "EASYの日本語は？",
-        "choices": ["やすい", "むずかしい", "かんたん", "むずい"],
-        "answer_index": 2,
-    },
-]
+QUESTIONS_BY_DIFFICULTY = {
+    "EASY": [
+        {
+            "id": 1,
+            "prompt": "「毎月」の読みかたは？",
+            "choices": ["せんげつ", "まいつき", "まいげつ", "らいげつ"],
+            "answer_index": 1,
+        },
+        {
+            "id": 2,
+            "prompt": "EASYの日本語は？",
+            "choices": ["やすい", "むずかしい", "かんたん", "むずい"],
+            "answer_index": 2,
+        },
+    ],
+    "NORMAL": [
+        {
+            "id": 3,
+            "prompt": "「いや」のつかいかたは？",
+            "choices": ["やだです", "いやます", "いやの○○", "いやです"],
+            "answer_index": 3,
+        }
+    ],
+    "HARD": [
+        {
+            "id": 4,
+            "prompt": "「Noun Modification」についてただしいものは？",
+            "choices": ["きれいのまち", "行きたいのレストラン", "あついなてんき", "すきなたべもの"],
+            "answer_index": 3,
+        }
+    ],
+}
 
 
 if "page" not in st.session_state:
@@ -33,6 +51,14 @@ if "awaiting_next" not in st.session_state:
     st.session_state.awaiting_next = False
 if "difficulty" not in st.session_state:
     st.session_state.difficulty = "NORMAL"
+
+
+def get_questions_for_current_mode():
+    return QUESTIONS_BY_DIFFICULTY.get(st.session_state.difficulty, [])
+
+
+def get_all_questions():
+    return [question for questions in QUESTIONS_BY_DIFFICULTY.values() for question in questions]
 
 
 def render_home() -> None:
@@ -84,7 +110,9 @@ def render_quiz() -> None:
 
     st.caption(f"モード: {st.session_state.difficulty}")
 
-    if st.session_state.quiz_index >= len(QUESTIONS):
+    questions = get_questions_for_current_mode()
+
+    if st.session_state.quiz_index >= len(questions):
         st.info("全ての問題が終了しました。お疲れさまです！")
         if st.button("結果を見る"):
             switch_page("result")
@@ -92,7 +120,7 @@ def render_quiz() -> None:
             switch_page("home")
         return
 
-    question = QUESTIONS[st.session_state.quiz_index]
+    question = questions[st.session_state.quiz_index]
     st.subheader(f"第{st.session_state.quiz_index + 1}問")
     st.write(question["prompt"])
 
@@ -102,7 +130,7 @@ def render_quiz() -> None:
         options=list(range(len(choice_labels))),
         format_func=lambda idx: choice_labels[idx],
         key=f"choice_{st.session_state.quiz_index}",
-        disabled=st.session_state.awaiting_next,
+        disabled=st.session_state.awaiting_next or st.session_state.last_feedback is not None,
     )
 
     if st.button("回答する", type="primary", disabled=st.session_state.awaiting_next):
@@ -128,7 +156,7 @@ def render_quiz() -> None:
             st.error(feedback["message"])
 
     if st.session_state.awaiting_next:
-        next_label = "結果を見る" if st.session_state.quiz_index == len(QUESTIONS) - 1 else "次の問題へ進む"
+        next_label = "結果を見る" if st.session_state.quiz_index == len(questions) - 1 else "次の問題へ進む"
         if st.button(next_label):
             st.session_state.quiz_index += 1
             st.session_state.last_feedback = None
@@ -149,7 +177,7 @@ def render_result() -> None:
         st.metric("正解数", f"{correct} / {total}")
 
         for record in st.session_state.quiz_answers:
-            question = next(q for q in QUESTIONS if q["id"] == record["question_id"])
+            question = next(q for q in get_all_questions() if q["id"] == record["question_id"])
             st.write(
                 f"問題: {question['prompt']} / 回答: {question['choices'][record['selected_index']]} / 正解: {question['choices'][question['answer_index']]}"
             )
