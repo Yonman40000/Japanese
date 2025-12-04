@@ -31,6 +31,8 @@ if "last_feedback" not in st.session_state:
     st.session_state.last_feedback = None
 if "awaiting_next" not in st.session_state:
     st.session_state.awaiting_next = False
+if "difficulty" not in st.session_state:
+    st.session_state.difficulty = "NORMAL"
 
 
 def render_home() -> None:
@@ -42,11 +44,7 @@ def render_home() -> None:
 
     with col1:
         if st.button("クイズを始める", use_container_width=True):
-            st.session_state.quiz_index = 0
-            st.session_state.quiz_answers = []
-            st.session_state.last_feedback = None
-            st.session_state.awaiting_next = False
-            switch_page("quiz")
+            switch_page("mode_select")
 
     with col2:
         if st.button("成績を見る", use_container_width=True):
@@ -55,15 +53,36 @@ def render_home() -> None:
     st.caption("気になる項目を選んで、学習を進めてください。")
 
 
+def render_mode_select() -> None:
+    st.header("難易度を選択")
+    st.write("EASY / NORMAL / HARD から選んでクイズを開始できます。")
+
+    difficulty = st.radio(
+        "難易度",
+        options=["EASY", "NORMAL", "HARD"],
+        index=["EASY", "NORMAL", "HARD"].index(st.session_state.difficulty),
+        horizontal=True,
+    )
+
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        if st.button("このモードでスタート", type="primary", use_container_width=True):
+            st.session_state.difficulty = difficulty
+            st.session_state.quiz_index = 0
+            st.session_state.quiz_answers = []
+            st.session_state.last_feedback = None
+            st.session_state.awaiting_next = False
+            switch_page("quiz")
+
+    with col2:
+        if st.button("ホームに戻る", use_container_width=True):
+            switch_page("home")
+
+
 def render_quiz() -> None:
     st.header("クイズ")
 
-    if st.session_state.last_feedback:
-        feedback = st.session_state.last_feedback
-        if feedback["is_correct"]:
-            st.success(feedback["message"])
-        else:
-            st.error(feedback["message"])
+    st.caption(f"モード: {st.session_state.difficulty}")
 
     if st.session_state.quiz_index >= len(QUESTIONS):
         st.info("全ての問題が終了しました。お疲れさまです！")
@@ -101,6 +120,13 @@ def render_quiz() -> None:
         st.session_state.last_feedback = {"is_correct": is_correct, "message": message}
         st.session_state.awaiting_next = True
 
+    if st.session_state.last_feedback:
+        feedback = st.session_state.last_feedback
+        if feedback["is_correct"]:
+            st.success(feedback["message"])
+        else:
+            st.error(feedback["message"])
+
     if st.session_state.awaiting_next:
         next_label = "結果を見る" if st.session_state.quiz_index == len(QUESTIONS) - 1 else "次の問題へ進む"
         if st.button(next_label):
@@ -134,6 +160,8 @@ def render_result() -> None:
 
 if st.session_state.page == "home":
     render_home()
+elif st.session_state.page == "mode_select":
+    render_mode_select()
 elif st.session_state.page == "quiz":
     render_quiz()
 elif st.session_state.page == "result":
