@@ -29,6 +29,8 @@ if "quiz_answers" not in st.session_state:
     st.session_state.quiz_answers = []
 if "last_feedback" not in st.session_state:
     st.session_state.last_feedback = None
+if "awaiting_next" not in st.session_state:
+    st.session_state.awaiting_next = False
 
 
 def render_home() -> None:
@@ -43,6 +45,7 @@ def render_home() -> None:
             st.session_state.quiz_index = 0
             st.session_state.quiz_answers = []
             st.session_state.last_feedback = None
+            st.session_state.awaiting_next = False
             switch_page("quiz")
 
     with col2:
@@ -80,9 +83,10 @@ def render_quiz() -> None:
         options=list(range(len(choice_labels))),
         format_func=lambda idx: choice_labels[idx],
         key=f"choice_{st.session_state.quiz_index}",
+        disabled=st.session_state.awaiting_next,
     )
 
-    if st.button("回答する", type="primary"):
+    if st.button("回答する", type="primary", disabled=st.session_state.awaiting_next):
         is_correct = selected == question["answer_index"]
         message = "正解です！" if is_correct else f"不正解です。正解は「{question['choices'][question['answer_index']]}」です。"
 
@@ -95,8 +99,15 @@ def render_quiz() -> None:
         )
 
         st.session_state.last_feedback = {"is_correct": is_correct, "message": message}
-        st.session_state.quiz_index += 1
-        st.rerun()
+        st.session_state.awaiting_next = True
+
+    if st.session_state.awaiting_next:
+        next_label = "結果を見る" if st.session_state.quiz_index == len(QUESTIONS) - 1 else "次の問題へ進む"
+        if st.button(next_label):
+            st.session_state.quiz_index += 1
+            st.session_state.last_feedback = None
+            st.session_state.awaiting_next = False
+            st.rerun()
 
     if st.button("ホームに戻る"):
         switch_page("home")
@@ -256,4 +267,3 @@ def generate_feedback(summary):
         ],
     )
     return res.choices[0].message.content
-
