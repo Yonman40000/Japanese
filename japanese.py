@@ -1,5 +1,5 @@
+from typing import TypedDict
 import streamlit as st
-
 
 def switch_page(page: str) -> None:
     st.session_state.page = page
@@ -48,15 +48,23 @@ elif st.session_state.page == "quiz":
 elif st.session_state.page == "result":
     render_result()
 
+class QuestionState(TypedDict):
+    question_id: int
+    times_seen: int
+    correct: int
+    wrong: int
+    last_seen: str
+
+
 Question = {
     "id": 1,
     "type": "mcq",  # "mcq" or "input"
-    "prompt": "この文として自然なのはどれ？",
-    "choices": ["A案", "B案", "C案", "D案"],
+    "prompt": "「毎月」の読みかたは？",
+    "choices": ["せんげつ", "まいつき", "まいげつ", "らいげつ"],
     "answer_index": 2,
-    "explanation": "解説テキスト…",
-    "tags": ["助詞", "日常会話", "N3文法"],
-    "audio_path": "audio/q1.mp3"  # あれば
+    "explanation": "読みかたは「まいつき」である。",
+    "tags": ["名詞", "日常会話", "N3文法"],
+    "audio_path": "audio/q1.mp3",  # あれば
 }
 
 UserAnswer = {
@@ -68,7 +76,7 @@ UserAnswer = {
 }
 
 
-QuestionState = {
+question_state_sample: QuestionState = {
     "question_id": 1,
     "times_seen": 3,
     "correct": 1,
@@ -76,20 +84,52 @@ QuestionState = {
     "last_seen": "2025-12-03",
 }
 
+all_question_states: list[QuestionState] = [
+    question_state_sample,
+    {
+        "question_id": 2,
+        "times_seen": 5,
+        "correct": 4,
+        "wrong": 1,
+        "last_seen": "2025-12-02",
+    },
+    {
+        "question_id": 3,
+        "times_seen": 2,
+        "correct": 0,
+        "wrong": 2,
+        "last_seen": "2025-12-01",
+    },
+]
+
+
 def priority(qs: QuestionState) -> float:
+    """誤答が多いものを優先し、正答が多いものの優先度は下げる。"""
+
     base = 1
     base += qs["wrong"] * 2      # 間違いが多いほど優先
     base -= qs["correct"] * 0.5  # 正解が多いと優先度下げる
-    # さらに最近出したものは少し優先度を下げるなどもOK
+    # 誤答したカードはすぐに復習させたいので、ANKI風に追加の重みを与える
+    if qs["wrong"] > 0:
+        base += 3
     return base
 
 
-# 全QuestionStateの中から、まだ出してOKなやつをリストにする
-candidates = all_question_states
+def build_review_queue(states: list[QuestionState]) -> list[int]:
+    """優先度順の復習キューを返す。誤答がある問題は前方に複数回配置。"""
 
-# priorityが高い順にソートして先頭から使う
-sorted_list = sorted(candidates, key=priority, reverse=True)
-next_question_id = sorted_list[0]["question_id"]
+    weighted_queue: list[int] = []
+    for qs in sorted(states, key=priority, reverse=True):
+        repeat = max(1, qs["wrong"])  # 誤答回数ぶん前方に並べる
+        weighted_queue.extend([qs["question_id"]] * repeat)
+    return weighted_queue
+
+
+# 全QuestionStateから復習キューを作る
+review_queue = build_review_queue(all_question_states)
+
+correct_count = sum(qs["correct"] for qs in all_question_states)
+next_question_id = review_queue[0]
 
 
 summary = {
@@ -135,5 +175,4 @@ def generate_feedback(summary):
             {"role": "user", "content": user},
         ],
     )
-
     return res.choices[0].message.content
